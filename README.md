@@ -1,181 +1,176 @@
-# Browserbase Lambda Playwright
+# 🚀 Serverless Browser Agents with Playwright + Lambda + Browserbase
+*Spin up headless browsers on AWS in under a minute—no layers, no EC2, no pain.*
 
-A serverless web agent and automation framework that combines AWS Lambda, Docker, and Browserbase to run Playwright-powered web agents and browser automation tasks without the complexity of managing browser dependencies within Lambda. Perfect for building autonomous web agents, scrapers, and automated workflows in a serverless environment.
+[![Build](https://github.com/your-username/your-repo/actions/workflows/deploy.yaml/badge.svg)](../../actions/workflows/deploy.yaml)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## Overview
+> **Star ⭐ this repo if it saves you hours, and hit _Fork_ to make it yours in seconds.**
 
-This project provides a complete infrastructure for deploying a Playwright-based web automation solution using:
+---
 
-- **AWS Lambda** with Docker container deployment
-- **Browserbase** for remote browser execution
-- **AWS CDK** for infrastructure as code
-- **GitHub Actions** for CI/CD
+## ⚡ TL;DR Quick-Start
 
-## Key Advantages
+### Option A: Local Deployment
 
-- **No Lambda Layers Required**: Package Playwright and all dependencies in a Docker container
-- **Low Lambda Resource Consumption**: Offload browser execution to Browserbase
-- **Durability & Offloaded State Management**: Browserbase sessions manage browser state
-- **Simplified Dependencies**: Minimal Python dependencies (playwright, browserbase, boto3)
-- **Built-in CI/CD Pipeline**: GitHub Actions workflow for automated deployment
-- **Scalability Focus Shift**: Scale by adjusting Browserbase plan rather than complex Lambda configurations
-
-## Prerequisites
-
-- AWS Account
-- Browserbase Account
-- Docker installed locally
-- AWS CLI installed
-- Node.js and npm installed (for AWS CDK)
-- Python 3.12+ installed
-
-## Setup Instructions
-
-### 1. Install AWS CLI
-
-#### macOS
 ```bash
+# 1. Clone this repository
+git clone https://github.com/your-username/browserbase-lambda-playwright.git
+cd browserbase-lambda-playwright
+
+# 2. Export AWS & Browserbase secrets
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+export BROWSERBASE_API_KEY=...
+export BROWSERBASE_PROJECT_ID=...
+
+# 3. Create AWS Secrets Manager entries
+aws secretsmanager create-secret \
+  --name BrowserbaseLambda/BrowserbaseApiKey \
+  --secret-string '{"BROWSERBASE_API_KEY":"'"$BROWSERBASE_API_KEY"'"}'
+
+aws secretsmanager create-secret \
+  --name BrowserbaseLambda/BrowserbaseProjectId \
+  --secret-string '{"BROWSERBASE_PROJECT_ID":"'"$BROWSERBASE_PROJECT_ID"'"}'
+
+# 4. Deploy (creates the Lambda + IAM + Secrets wiring)
+cd infra && pip install -r requirements.txt && cdk deploy --all --require-approval never
+```
+
+### Option B: GitHub Actions Deployment
+
+```bash
+# 1. Create your own repository
+# Either fork this repository on GitHub or create a new one and push this code
+
+# 2. Add GitHub repository secrets
+# Go to your repository → Settings → Secrets and variables → Actions → New repository secret
+# Add these secrets:
+# - AWS_ACCESS_KEY: Your AWS Access Key ID
+# - AWS_SECRET_ACCESS_KEY: Your AWS Secret Access Key
+
+# 3. Create AWS Secrets Manager entries (same as Option A step 3)
+
+# 4. Push to main branch to trigger deployment
+git push origin main
+```
+
+You now have a Lambda that opens a Browserbase session and runs Playwright code from **`src/scraper.py`**.  
+Invoke it with:
+
+```bash
+aws lambda invoke \
+  --function-name <deployed-lambda-name> \
+  --payload '{"url":"https://news.ycombinator.com/"}' \
+  response.json && cat response.json | jq
+```
+
+---
+
+## 🚀 Why use this template?
+
+* **Zero binary juggling** – Playwright lives in the Docker image; heavy Chrome lives on Browserbase.  
+* **Cold-start ≈ 2 s** – no browser download, just connect-over-CDP.  
+* **Pay-per-run** – pure Lambda pricing; scale by upgrading Browserbase, not infra.  
+* **Built-in CI/CD** – GitHub Actions deploys on every push to `main`.  
+
+---
+
+## 🏗️ High-Level Architecture
+
+```
+     ┌────────────┐  CDP (WebSocket)  ┌────────────┐
+     │ AWS Lambda │ ────────────────▶ │ Browserbase│
+     └────────────┘                   └────────────┘
+           │              Logs
+           ▼
+     AWS CloudWatch
+```
+
+---
+
+## 📦 Project Layout
+
+```
+.
+├── .github/workflows/deploy.yaml   # CI/CD pipeline
+├── infra/                          # CDK IaC
+│   ├── app.py
+│   ├── stack.py
+│   └── requirements.txt
+└── src/
+    ├── Dockerfile                  # Lambda image
+    ├── scraper.py                  # Playwright logic
+    └── requirements.txt
+```
+
+---
+
+<details>
+<summary>🔍 Full Setup & Prerequisites</summary>
+
+### Requirements
+
+| Tool | Version |
+| --- | --- |
+| AWS CLI | any 2.x |
+| Docker | ≥ 20.10 |
+| Node & npm | any LTS (for CDK) |
+| Python | 3.12+ |
+| Browserbase account | free tier works |
+
+### 1. Install the AWS CLI
+
+```bash
+# macOS (Homebrew)
 brew install awscli
 ```
 
-#### Windows
-Download and run the installer from: https://aws.amazon.com/cli/
+(See AWS docs for Windows/Linux.)
 
-#### Linux
+### 2. Configure AWS
+
 ```bash
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
+aws configure  # supply keys & default region, e.g. us-east-1
 ```
 
-### 2. Configure AWS CLI
+### 3. Add Browserbase secrets to AWS Secrets Manager
 
 ```bash
-aws configure
-```
-
-You'll need to provide:
-- AWS Access Key ID
-- AWS Secret Access Key
-- Default region (e.g., us-east-1)
-- Default output format (json recommended)
-
-### 3. Getting AWS Access Keys
-
-1. Log in to the AWS Management Console
-2. Navigate to IAM (Identity and Access Management)
-3. Click on "Users" in the left navigation pane
-4. Click on your username or create a new user
-5. Select the "Security credentials" tab
-6. Under "Access keys", click "Create access key"
-7. Download the CSV file or copy the Access Key ID and Secret Access Key
-
-**Note**: For production use, follow AWS best practices by creating a user with only the necessary permissions.
-
-### 4. Sign up for Browserbase
-
-1. Visit [Browserbase](https://browserbase.com/) and sign up for an account
-2. After signing up, navigate to your dashboard
-3. Create a new project or use the default project
-4. Note your API key and Project ID from the dashboard
-
-### 5. Create AWS Secrets for Browserbase Credentials
-
-Create secrets for your Browserbase API key and Project ID:
-
-```bash
-# Create secret for Browserbase API Key
 aws secretsmanager create-secret \
-    --name BrowserbaseLambda/BrowserbaseApiKey \
-    --secret-string '{"BROWSERBASE_API_KEY":"your-api-key-here"}'
+  --name BrowserbaseLambda/BrowserbaseApiKey \
+  --secret-string '{"BROWSERBASE_API_KEY":"$BROWSERBASE_API_KEY"}'
 
-# Create secret for Browserbase Project ID
 aws secretsmanager create-secret \
-    --name BrowserbaseLambda/BrowserbaseProjectId \
-    --secret-string '{"BROWSERBASE_PROJECT_ID":"your-project-id-here"}'
+  --name BrowserbaseLambda/BrowserbaseProjectId \
+  --secret-string '{"BROWSERBASE_PROJECT_ID":"$BROWSERBASE_PROJECT_ID"}'
 ```
 
-### 6. Install Playwright Locally (for Development)
+### 4. Local Playwright install (optional for dev)
 
 ```bash
-# Install Playwright
-pip install playwright
-
-# Install browser binaries
-python -m playwright install
+pip install playwright && python -m playwright install
 ```
 
-## Project Structure
+</details>
 
-```
-browserbase-lambda-playwright/
-├── .github/workflows/      # GitHub Actions workflows
-│   └── deploy.yaml         # CI/CD pipeline for deployment
-├── infra/                  # AWS CDK infrastructure code
-│   ├── app.py              # CDK app entry point
-│   ├── stack.py            # CDK stack definition
-│   ├── cdk.json            # CDK configuration
-│   └── requirements.txt    # Python dependencies for CDK
-├── src/                    # Lambda function source code
-│   ├── scraper.py          # Main Lambda handler
-│   ├── Dockerfile          # Docker container definition
-│   └── requirements.txt    # Python dependencies for Lambda
-└── README.md               # Project documentation
-```
+---
 
-## Deployment
+## ❓ FAQ
 
-### Manual Deployment
+| Question | Answer |
+| --- | --- |
+| **Does this work on Browserbase free tier?** | Yes—1 concurrent session and rate-limited creation. |
+| **Cold-starts?** | Typical < 2000 ms; browser runs remotely. |
+| **How do I add extra Python libs?** | Add them to `src/requirements.txt`, rebuild, push—GitHub Actions redeploys. |
 
-```bash
-# Install CDK dependencies
-cd infra
-pip install -r requirements.txt
+---
 
-# Deploy the stack
-cdk deploy
-```
+## 🤝 Contributing
 
-### Automated Deployment via GitHub Actions
+Pull requests are welcome! Please open an issue first if you plan a large change.
 
-The project includes a GitHub Actions workflow that automatically deploys the infrastructure when changes are pushed to the main branch.
+---
 
-To use this workflow:
+## 📄 License
 
-1. Clone this repository to your GitHub account:
-   ```bash
-   git clone https://github.com/yourusername/browserbase-lambda-playwright.git
-   cd browserbase-lambda-playwright
-   ```
-
-2. Add the following secrets to your GitHub repository:
-   - `AWS_ACCESS_KEY`: Your AWS Access Key ID
-   - `AWS_SECRET_ACCESS_KEY`: Your AWS Secret Access Key
-
-3. Push changes to the main branch to trigger deployment
-
-## Free vs. Paid Browserbase Capabilities
-
-This project is designed to work with Browserbase's free tier, which is suitable for development and testing but has limitations:
-
-### Free Tier Limitations
-
-- **Concurrency**: Limited to 1 concurrent browser session
-- **Rate Limit**: Limited to creating 1 new session per minute
-- **Proxies**: Not supported (0GB allowance)
-- **Fingerprinting/Stealth**: Not available
-- **Keep-Alive**: Not available
-- **Browser Hours**: Limited usage (e.g., 1 hour/month)
-
-## Use Cases Beyond Scraping
-
-While this architecture is well-suited for standard browser automation tasks like web scraping and data extraction, it can be extended to build serverless web agents for:
-
-- Monitoring websites for changes and triggering actions
-- Performing complex sequences of actions across multiple web pages
-- Providing a "browser tool" for Large Language Models (LLMs)
-- Automating repetitive user interactions within web applications
-
-## License
-
-MIT
+This project is licensed under the MIT License – see the [LICENSE](LICENSE) file for details.
