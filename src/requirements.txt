@@ -1,0 +1,3 @@
+browserbase==1.2.0
+boto3==1.36.22
+playwright==1.51.0
