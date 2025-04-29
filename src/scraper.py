@@ -15,7 +15,7 @@ logger.setLevel(log_level)
 
 # --- Configuration from Environment Variables ---
 BROWSERBASE_API_KEY_SECRET_ARN = os.environ.get("BROWSERBASE_API_KEY_SECRET_ARN")
-BROWSERBASE_PROJECT_ID_SECRET_ARN = os.environ.get("BROWSERBASE_PROJECT_ID_SECRET_ARN")
+BROWSERBASE_PROJECT_ID_ARN = os.environ.get("BROWSERBASE_PROJECT_ID_ARN")
 
 # --- AWS Clients ---
 secrets_manager_client = boto3.client('secretsmanager')
@@ -48,15 +48,15 @@ def get_secret_value(secret_arn: str, expected_key: str) -> Optional[str]:
 # --- Browserbase Session Creation (Modified for Free Tier) ---
 def create_browserbase_session():
     """Creates a basic Browserbase session compatible with the free tier."""
-    if not BROWSERBASE_PROJECT_ID_SECRET_ARN:
-        logger.error("BROWSERBASE_PROJECT_ID_SECRET_ARN environment variable not set.")
-        raise ValueError("BROWSERBASE_PROJECT_ID_SECRET_ARN not set.")
+    if not BROWSERBASE_PROJECT_ID_ARN:
+        logger.error("BROWSERBASE_PROJECT_ID_ARN environment variable not set.")
+        raise ValueError("BROWSERBASE_PROJECT_ID_ARN not set.")
     if not BROWSERBASE_API_KEY_SECRET_ARN:
         logger.error("BROWSERBASE_API_KEY_SECRET_ARN environment variable not set.")
         raise ValueError("BROWSERBASE_API_KEY_SECRET_ARN not set.")
 
     browserbase_api_key = get_secret_value(BROWSERBASE_API_KEY_SECRET_ARN, 'BROWSERBASE_API_KEY')
-    browserbase_project_id = get_secret_value(BROWSERBASE_PROJECT_ID_SECRET_ARN, 'BROWSERBASE_PROJECT_ID')
+    browserbase_project_id = get_secret_value(BROWSERBASE_PROJECT_ID_ARN, 'BROWSERBASE_PROJECT_ID')
 
     if not browserbase_api_key or not browserbase_project_id:
         raise ValueError("Failed to retrieve Browserbase credentials from Secrets Manager.")
