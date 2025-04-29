@@ -30,7 +30,7 @@ def get_secret_value(secret_arn: str, expected_key: str) -> Optional[str]:
     try:
         response = secrets_manager_client.get_secret_value(SecretId=secret_arn)
         if 'SecretString' in response:
-            secret_data = json.loads(response)
+            secret_data = json.loads(response['SecretString'])
             if expected_key in secret_data:
                 value = secret_data[expected_key]
                 logger.info(f"Successfully retrieved secret for key: {expected_key}")
