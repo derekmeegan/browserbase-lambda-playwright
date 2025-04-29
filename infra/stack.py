@@ -6,6 +6,7 @@ from aws_cdk import (
     Size,
     aws_secretsmanager as secretsmanager,
 )
+from aws_cdk.aws_ecr_assets import Platform
 from constructs import Construct
 
 class BrowserbaseLambdaStack(Stack):
