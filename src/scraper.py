@@ -108,9 +108,13 @@ async def scrape_page(event):
         if not browser.contexts:
              logger.error("No browser contexts found in the connected session.")
              raise Exception("No browser contexts found.")
-        context = browser.contexts
-        page = context.pages if context.pages else await context.new_page()
-        logger.info(f"Using page (initial URL: {page.url})")
+        context = browser.contexts[0]
+        if not context.pages:
+             logger.warning("No pages found in context, creating a new one.")
+             page = await context.new_page()
+        else:
+             page = context.pages[0]
+             logger.info("Using existing page from context.")
 
         # 3. Perform Simple Playwright Automation
         logger.info(f"Navigating to {target_url}...")
