@@ -1,7 +1,7 @@
 # 🚀 Serverless Browser Agents with Playwright + Lambda + Browserbase
 *Spin up headless browsers on AWS in under a minute—no layers, no EC2, no pain.*
 
-[![Build](https://github.com/your-username/your-repo/actions/workflows/deploy.yaml/badge.svg)](../../actions/workflows/deploy.yaml)
+[![Build](https://github.com/derekmeegan/browserbase-lambda-playwright/actions/workflows/deploy.yaml/badge.svg)](../../actions/workflows/deploy.yaml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 > **Star ⭐ this repo if it saves you hours, and hit _Fork_ to make it yours in seconds.**
