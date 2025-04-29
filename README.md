@@ -165,6 +165,16 @@ pip install playwright && python -m playwright install
 
 ---
 
+## ⚙️ Performance & Optimization (Optional)
+
+If you need faster cold-starts or shorter CI deploys, consider:
+
+- Provisioned Concurrency: Keep your Lambda warm to skip container startup.
+
+- Browserbase Keep‑Alive: Paid sessions remove free-tier spin‑up overhead.
+
+- CI Caching: Use actions/cache for pip and npm in GitHub Actions to shave minutes
+
 ## 🤝 Contributing
 
 Pull requests are welcome! Please open an issue first if you plan a large change.
