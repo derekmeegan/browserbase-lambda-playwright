@@ -1,6 +1,7 @@
 import os
 import json
 import boto3
+import asyncio
 import logging
 from botocore.exceptions import ClientError
 from browserbase import Browserbase, BrowserbaseError
@@ -75,8 +76,8 @@ def create_browserbase_session():
         logger.error(f"Error creating session: {e}")
         raise
 
-# --- Lambda Handler ---
-async def lambda_handler(event, context):
+# --- Scraper Function ---
+async def scrape_page(event):
     """
     AWS Lambda handler function to run a simple Playwright task via Browserbase.
     """
@@ -149,3 +150,7 @@ async def lambda_handler(event, context):
         'page_title': page_title,
         'content_length': content_length
     }
+
+# --- Lambda Handler ---
+def lambda_handler(event, context):
+    return asyncio.run(scrape_page(event))
