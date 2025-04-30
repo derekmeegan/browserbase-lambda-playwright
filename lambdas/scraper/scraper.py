@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 from browserbase import Browserbase, BrowserbaseError
 from playwright.async_api import async_playwright
-from typing import Optional
+from typing import Optional, Dict, Any
 
 # --- Logging Setup ---
 logger = logging.getLogger()
@@ -208,7 +208,7 @@ def lambda_handler(event, context):
     and returns immediately (result handling is done via DynamoDB).
     """
     logger.info(f"Lambda handler invoked with event: {json.dumps(event)}")
-    
+
     body = event.get('body')
     if not body:
         logger.error("Request body is missing or empty.")
