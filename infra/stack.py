@@ -91,15 +91,10 @@ class BrowserbaseLambdaStack(Stack):
         
         async_lambda_integration = apigateway.LambdaIntegration(
             browserbase_lambda,
-            proxy=True,
-            integration_responses=[
-                apigateway.IntegrationResponse(
-                     status_code="202",
-                 )
-            ],
+            proxy=False,
             request_parameters={
                 'integration.request.header.X-Amz-Invocation-Type': "'Event'"
-            },
+            }
         )
 
         getter_lambda_integration = apigateway.LambdaIntegration(
