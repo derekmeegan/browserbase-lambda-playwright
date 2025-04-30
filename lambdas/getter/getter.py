@@ -26,7 +26,7 @@ def lambda_handler(event, context):
         job_id = event.get('pathParameters', {}).get('jobId')
 
         logger.info(f"Attempting to retrieve job status for jobId: {job_id}")
-        response = job_table.get_item(Key={'jobId': job_id})
+        response = job_table.get_item(Key={'id': job_id})
 
         if 'Item' in response:
             item = response['Item']

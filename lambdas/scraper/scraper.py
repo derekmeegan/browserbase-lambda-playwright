@@ -53,13 +53,10 @@ def get_secret_value(secret_arn: str, expected_key: str) -> Optional[str]:
 # --- DynamoDB Helper Function ---
 def update_job_status(job_id: str, status: str, result_data: Optional[Dict[str, Any]] = None, error_message: Optional[str] = None):
     """Updates the job status and results in DynamoDB."""
-    if not job_table:
-        logger.error("DynamoDB table not configured. Cannot update job status.")
-        return
 
     timestamp = datetime.now(timezone.utc).isoformat()
     item = {
-        'jobId': job_id,
+        'id': job_id,
         'status': status,
         'lastUpdatedAt': timestamp,
     }
