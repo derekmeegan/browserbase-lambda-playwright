@@ -140,7 +140,6 @@ def main(url: str = None):
             print("It might still be running or encountered an issue. Check status manually later:")
             print(f"  curl -H \"x-api-key: {API_KEY}\" {API_ENDPOINT_URL}/{job_id}")
 
-
 if __name__ == "__main__":
     url = None
     main(url)
