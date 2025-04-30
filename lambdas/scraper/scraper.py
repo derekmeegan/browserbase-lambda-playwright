@@ -206,19 +206,7 @@ def lambda_handler(event, context):
     """
     logger.info(f"Lambda handler invoked with event: {json.dumps(event)}")
 
-    body = event.get('body')
-    if not body:
-        logger.error("Request body is missing or empty.")
-        return {'status': 'error', 'message': 'Missing request body'}
-
-    try:
-        payload = json.loads(body)
-    except json.JSONDecodeError:
-        logger.error(f"Failed to parse JSON body: {body}")
-        return {'status': 'error', 'message': 'Invalid JSON body'}
-
-    result = asyncio.run(scrape_page(payload))
-
+    result = asyncio.run(scrape_page(event))
     logger.info(f"Lambda handler completed for jobId: {result.get('jobId')}. Scraper status (for logs): {result.get('finalStatus')}")
 
     return {'status': 'accepted', 'jobId': result.get('jobId')}  

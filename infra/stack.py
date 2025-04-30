@@ -4,6 +4,7 @@ from aws_cdk import (
     aws_iam as iam,
     aws_apigateway as apigateway,
     aws_dynamodb as dynamodb,
+    aws_logs as logs,
     Duration,
     Size,
     aws_secretsmanager as secretsmanager,
@@ -94,7 +95,12 @@ class BrowserbaseLambdaStack(Stack):
             proxy=False,
             request_parameters={
                 'integration.request.header.X-Amz-Invocation-Type': "'Event'"
-            }
+            },
+            integration_responses=[
+                apigateway.IntegrationResponse(
+                    status_code="202",
+                )
+            ],
         )
 
         getter_lambda_integration = apigateway.LambdaIntegration(
@@ -102,13 +108,33 @@ class BrowserbaseLambdaStack(Stack):
             proxy=True
         )
 
+        api_log_group = logs.LogGroup(self, "ApiGatewayAccessLogs",
+            retention=logs.RetentionDays.ONE_MONTH,
+            removal_policy=RemovalPolicy.DESTROY
+        )
+
         api = apigateway.RestApi(
             self, "BrowserbaseAsyncApi",
             rest_api_name="Browserbase Async API",
             description="API to trigger Browserbase Lambda asynchronously",
             deploy_options=apigateway.StageOptions(
-                stage_name="v1"
-            )
+                stage_name="v1",
+                access_log_destination=apigateway.LogGroupLogDestination(api_log_group),
+                access_log_format=apigateway.AccessLogFormat.json_with_standard_fields(
+                    caller=True,
+                    http_method=True,
+                    ip=True,
+                    protocol=True,
+                    request_time=True,
+                    resource_path=True,
+                    response_length=True,
+                    status=True,
+                    user=True,
+                ),
+                logging_level=apigateway.MethodLoggingLevel.INFO,
+                data_trace_enabled=True
+            ),
+            cloud_watch_role=True
         )
 
         scrape_request_model = api.add_model("ScrapeRequestModel",
@@ -213,4 +239,9 @@ class BrowserbaseLambdaStack(Stack):
             self, "JobStatusTableName",
             value=job_table.table_name,
             description="DynamoDB table name for job status"
+        )
+        CfnOutput(
+            self, "ApiGatewayAccessLogGroupName", 
+            value=api_log_group.log_group_name,
+            description="Log Group Name for API Gateway Access Logs"
         )
