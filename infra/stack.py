@@ -36,7 +36,7 @@ class BrowserbaseLambdaStack(Stack):
         )
 
         scraper_execution_role = iam.Role(
-            self, "BrowserbaseLambdaExecutionRole",
+            self, "ScraperLambdaExecutionRole",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
             managed_policies=[
                 iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
@@ -47,7 +47,7 @@ class BrowserbaseLambdaStack(Stack):
         job_table.grant_read_write_data(scraper_execution_role)
 
         getter_execution_role = iam.Role(
-            self, "BrowserbaseLambdaExecutionRole",
+            self, "GetterLambdaExecutionRole",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
             managed_policies=[
                 iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
