@@ -1,12 +1,14 @@
 import os
+import uuid
 import json
 import boto3
 import asyncio
 import logging
+from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 from browserbase import Browserbase, BrowserbaseError
 from playwright.async_api import async_playwright
-from typing import Optional
+from typing import Optional, Dict, Any
 
 # --- Logging Setup ---
 logger = logging.getLogger()
@@ -16,9 +18,12 @@ logger.setLevel(log_level)
 # --- Configuration from Environment Variables ---
 BROWSERBASE_API_KEY_SECRET_ARN = os.environ.get("BROWSERBASE_API_KEY_SECRET_ARN")
 BROWSERBASE_PROJECT_ID_ARN = os.environ.get("BROWSERBASE_PROJECT_ID_ARN")
+JOB_STATUS_TABLE_NAME = os.environ.get("JOB_STATUS_TABLE_NAME")
 
 # --- AWS Clients ---
 secrets_manager_client = boto3.client('secretsmanager')
+dynamodb = boto3.resource('dynamodb')
+job_table = dynamodb.Table(JOB_STATUS_TABLE_NAME)
 
 # --- Secret Retrieval Function ---
 def get_secret_value(secret_arn: str, expected_key: str) -> Optional[str]:
@@ -44,6 +49,30 @@ def get_secret_value(secret_arn: str, expected_key: str) -> Optional[str]:
     except (ClientError, json.JSONDecodeError, Exception) as e:
         logger.error(f"Error retrieving or parsing secret {secret_arn}: {e}", exc_info=True)
         return None
+
+# --- DynamoDB Helper Function ---
+def update_job_status(job_id: str, status: str, result_data: Optional[Dict[str, Any]] = None, error_message: Optional[str] = None):
+    """Updates the job status and results in DynamoDB."""
+
+    timestamp = datetime.now(timezone.utc).isoformat()
+    item = {
+        'id': job_id,
+        'status': status,
+        'lastUpdatedAt': timestamp,
+    }
+    if result_data:
+        item.update(result_data)
+    if error_message:
+        item['errorMessage'] = error_message
+
+    try:
+        logger.info(f"Updating DynamoDB for jobId {job_id} with status {status}")
+        job_table.put_item(Item=item)
+        logger.info(f"Successfully updated DynamoDB for jobId {job_id}")
+    except ClientError as e:
+        logger.error(f"Failed to update DynamoDB for jobId {job_id}: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during DynamoDB update for jobId {job_id}: {e}", exc_info=True)
 
 # --- Browserbase Session Creation (Modified for Free Tier) ---
 def create_browserbase_session():
@@ -77,19 +106,26 @@ def create_browserbase_session():
         raise
 
 # --- Scraper Function ---
-async def scrape_page(event):
+async def scrape_page(payload: dict):
     """
     AWS Lambda handler function to run a simple Playwright task via Browserbase.
     """
-    logger.info(f"Received event: {json.dumps(event)}")
+    logger.info(f"Received event: {json.dumps(payload)}")
+    job_id = payload.get("jobId", str(uuid.uuid4()))
+    target_url = payload.get("url", "https://news.ycombinator.com/")
 
-    target_url = event.get("url", "https://news.ycombinator.com/")
+    initial_data = {
+        'requestedUrl': target_url,
+        'receivedAt': datetime.now(timezone.utc).isoformat()
+    }
+    update_job_status(job_id, "PENDING", result_data=initial_data)
 
     playwright = None
     browser = None
-    page_title = None
     session_id = None
-    status = "failed"
+    error_info = None
+    final_status = "failed"
+    results = {}
 
     try:
         # 1. Create Browserbase Session
@@ -97,6 +133,9 @@ async def scrape_page(event):
         session = create_browserbase_session()
         connect_url = session.connect_url
         session_id = session.id
+        initial_data['sessionId'] = session_id
+
+        update_job_status(job_id, "RUNNING", result_data=initial_data)
         logger.info(f"Successfully created Browserbase session: {session_id}")
 
         # 2. Connect using Playwright
@@ -125,36 +164,49 @@ async def scrape_page(event):
         content_length = len(await page.content())
         logger.info(f"Page content length: {content_length}")
 
-        status = "success"
+        results = {
+            'pageTitle': page_title,
+            'contentLength': content_length,
+        }
+        final_status = "SUCCESS"
         logger.info("Playwright automation task completed successfully.")
 
     except BrowserbaseError as e:
-        logger.error(f"Browserbase API error: {e}", exc_info=True)
-        return {'status': 'failed', 'error': f"Browserbase API error: {e}", 'session_id': session_id}
+        error_info = f"Browserbase API error: {e}"
+        logger.error(error_info, exc_info=True)
     except TimeoutError as e:
-         logger.error(f"Playwright timeout error: {e}", exc_info=True)
-         return {'status': 'failed', 'error': f"Playwright timeout: {e}", 'session_id': session_id}
+        error_info = f"Playwright timeout error: {e}"
+        logger.error(error_info, exc_info=True)
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}", exc_info=True)
-        return {'status': 'failed', 'error': f"Unexpected error: {e}", 'session_id': session_id}
+        error_info = f"An unexpected error occurred: {e}"
+        logger.error(error_info, exc_info=True)
     finally:
-        # 4. Cleanup
+        # 4. Update DynamoDB
+        final_data = initial_data.copy()
+        final_data.update(results) 
+        update_job_status(job_id, final_status, result_data=final_data, error_message=error_info)
+
+        # 5. Cleanup
         if browser and browser.is_connected():
             logger.info("Closing browser connection...")
             await browser.close()
         if playwright:
             logger.info("Stopping Playwright...")
             await playwright.stop()
-        logger.info("Lambda execution finished.")
 
-    return {
-        'status': status,
-        'session_id': session_id,
-        'requested_url': target_url,
-        'page_title': page_title,
-        'content_length': content_length
-    }
+        logger.info(f"scrape_page finished for jobId: {job_id} with status: {final_status}")
+
+    return {'jobId': job_id, 'finalStatus': final_status}
 
 # --- Lambda Handler ---
 def lambda_handler(event, context):
-    return asyncio.run(scrape_page(event))
+    """
+    Handles API Gateway async invocation. Parses request, triggers scrape_page,
+    and returns immediately (result handling is done via DynamoDB).
+    """
+    logger.info(f"Lambda handler invoked with event: {json.dumps(event)}")
+
+    result = asyncio.run(scrape_page(event))
+    logger.info(f"Lambda handler completed for jobId: {result.get('jobId')}. Scraper status (for logs): {result.get('finalStatus')}")
+
+    return {'status': 'accepted', 'jobId': result.get('jobId')}  
